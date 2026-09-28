@@ -12,14 +12,14 @@
     "test": "cd anchor && anchor test",
     "test:rust": "cd anchor && cargo test --package pm_amm",
     "dev": "cd app && pnpm dev",
-    "deploy": "bash -c 'source app/.env.local 2>/dev/null; solana program deploy anchor/target/deploy/pm_amm.so --keypair ~/.config/solana/id.json --program-id anchor/target/deploy/pm_amm-keypair.json --url \"${NEXT_PUBLIC_RPC_URL:-https://api.devnet.solana.com}\"'",
+    "deploy": "bash -c 'source app/.env.local 2>/dev/null; solana program deploy anchor/target/deploy/pm_amm.so --keypair ${DEVNET_UPGRADE_KEYPAIR:-~/.config/solana/pm-amm-devnet-upgrade.json} --program-id anchor/target/deploy/pm_amm-keypair.json --url \"${NEXT_PUBLIC_RPC_URL:-https://api.devnet.solana.com}\"'",
     "deploy:mainnet": "bash anchor/scripts/deploy-mainnet.sh",
     "lint": "prettier --check 'app/src/**/*.{ts,tsx}' 'packages/*/src/**/*.ts' && cd app && pnpm lint",
     "lint:fix": "prettier --write 'app/src/**/*.{ts,tsx}' 'packages/*/src/**/*.ts' && cd app && pnpm lint:fix",
     "type-check": "pnpm --filter @pm-amm/sdk type-check && cd app && pnpm tsc --noEmit",
     "test:all": "cd anchor && cargo test --package pm_amm && cd ../oracle && python3 -m pytest test_oracle.py test_properties.py -v",
-    "musdc": "cd anchor && ANCHOR_PROVIDER_URL=https://api.devnet.solana.com ANCHOR_WALLET=~/.config/solana/id.json pnpm exec ts-node --transpile-only -P ./tsconfig.json scripts/mint-usdc.ts",
-    "seed": "bash -c 'source app/.env 2>/dev/null; cd anchor && ANCHOR_PROVIDER_URL=\"${NEXT_PUBLIC_RPC_URL:-https://api.devnet.solana.com}\" ANCHOR_WALLET=~/.config/solana/phantom.json pnpm exec ts-node --transpile-only -P ./tsconfig.json scripts/seed-markets.ts'"
+    "musdc": "cd anchor && ANCHOR_PROVIDER_URL=https://api.devnet.solana.com ANCHOR_WALLET=${MINT_AUTHORITY_KEYPAIR:-~/.config/solana/pm-amm-devnet-mint.json} pnpm exec ts-node --transpile-only -P ./tsconfig.json scripts/mint-usdc.ts",
+    "seed": "pnpm run build:sdk && bash -c 'set -a; source app/.env.local 2>/dev/null; set +a; NODE_PATH=\"$PWD/app/node_modules\" node scripts/seed-devnet.cjs'"
   },
   "devDependencies": {
     "prettier": "^3.5.0"

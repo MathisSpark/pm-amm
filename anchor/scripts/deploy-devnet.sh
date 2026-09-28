@@ -1,7 +1,10 @@
 #!/bin/bash
 # Deploy pm-AMM to devnet
-# Prerequisites: solana CLI configured for devnet, ~5 SOL balance
+# Prerequisites: the devnet upgrade authority (ETGKSFc7…, a dedicated key — not
+# id.json) with ~8 SOL free for the upgrade buffer (refunded).
 set -e
+
+KEYPAIR="${DEVNET_UPGRADE_KEYPAIR:-$HOME/.config/solana/pm-amm-devnet-upgrade.json}"
 
 echo "=== pm-AMM Devnet Deploy ==="
 
@@ -9,13 +12,13 @@ echo "=== pm-AMM Devnet Deploy ==="
 solana config set --url devnet
 
 # Check balance
-BALANCE=$(solana balance | awk '{print $1}')
+BALANCE=$(solana balance -k "$KEYPAIR" | awk '{print $1}')
 echo "Balance: $BALANCE SOL"
 if (( $(echo "$BALANCE < 4" | bc -l) )); then
     echo "Need at least 4 SOL for deploy. Requesting airdrop..."
-    solana airdrop 2 || true
+    solana airdrop 2 -k "$KEYPAIR" || true
     sleep 2
-    solana airdrop 2 || true
+    solana airdrop 2 -k "$KEYPAIR" || true
     sleep 2
 fi
 
@@ -29,6 +32,7 @@ anchor idl build -o target/idl/pm_amm.json
 echo "Deploying..."
 solana program deploy target/deploy/pm_amm.so \
     --program-id target/deploy/pm_amm-keypair.json \
+    --keypair "$KEYPAIR" \
     --url devnet
 
 PROGRAM_ID=$(solana address -k target/deploy/pm_amm-keypair.json)

@@ -3,14 +3,16 @@
  *
  * Usage:
  *   ANCHOR_PROVIDER_URL=https://api.devnet.solana.com \
- *   ANCHOR_WALLET=~/.config/solana/id.json \
+ *   ANCHOR_WALLET=~/.config/solana/pm-amm-devnet-mint.json \
  *   pnpm exec ts-node --transpile-only -P ./tsconfig.json scripts/mint-usdc.ts [wallet] [amount]
  *
  * Args:
  *   wallet  - recipient pubkey (default: your wallet)
  *   amount  - USDC amount (default: 1000)
  *
- * Note: only works if your wallet is the mint authority for the mock USDC.
+ * Note: ANCHOR_WALLET must be the mock-USDC mint authority — the dedicated key
+ * EftrgEw3… (~/.config/solana/pm-amm-devnet-mint.json), not the upgrade key.
+ * `pnpm run musdc` sets it (override with MINT_AUTHORITY_KEYPAIR=<path>).
  */
 
 import * as anchor from "@anchor-lang/core";

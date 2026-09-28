@@ -4,8 +4,9 @@
  * Expect: Alice ≈ 94, Bob 0, Carol > 20, market vault ≈ 0 after every claim.
  *
  * Takes ~7 min (real devnet clock: 60 s commit window + 345 s market). Funds
- * three throwaway wallets from ~/.config/solana/id.json (also the mock-USDC
- * mint authority), so that key needs ~1 SOL of devnet SOL.
+ * three throwaway wallets from ~/.config/solana/id.json (needs ~1 SOL of devnet
+ * SOL); mUSDC is minted by the dedicated mint authority
+ * (~/.config/solana/pm-amm-devnet-mint.json, override with MINT_AUTHORITY_KEYPAIR).
  *
  *   pnpm run build:sdk
  *   NODE_PATH=packages/sdk/node_modules node scripts/e2e-bet-vault-devnet.cjs
@@ -45,12 +46,13 @@ class NodeWallet {
 (async () => {
   const conn = new Connection(RPC, "confirmed");
   const funder = Keypair.fromSecretKey(Uint8Array.from(JSON.parse(fs.readFileSync(`${process.env.HOME}/.config/solana/id.json`))));
+  const mintAuthority = Keypair.fromSecretKey(Uint8Array.from(JSON.parse(fs.readFileSync(process.env.MINT_AUTHORITY_KEYPAIR || `${process.env.HOME}/.config/solana/pm-amm-devnet-mint.json`))));
   const mk = async (name, usdcAmount) => {
     const kp = Keypair.generate();
     const tx = new Transaction().add(SystemProgram.transfer({ fromPubkey: funder.publicKey, toPubkey: kp.publicKey, lamports: 0.25 * LAMPORTS_PER_SOL }));
     await conn.sendTransaction(tx, [funder]).then((s) => conn.confirmTransaction(s, "confirmed"));
     const ata = (await getOrCreateAssociatedTokenAccount(conn, funder, USDC, kp.publicKey)).address;
-    await mintTo(conn, funder, USDC, ata, funder, usdcAmount * 1e6);
+    await mintTo(conn, funder, USDC, ata, mintAuthority, usdcAmount * 1e6);
     const client = PmAmmClient.fromProvider(new anchor.AnchorProvider(conn, new NodeWallet(kp), { commitment: "confirmed" }), PROGRAM, USDC);
     return { name, kp, ata, client };
   };
