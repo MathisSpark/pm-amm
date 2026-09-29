@@ -102,6 +102,21 @@ mint authority. Public devnet airdrops are rate-limited per IP and often dry, so
 without it a new builder can hold 1,000 mUSDC and still be unable to pay a fee.
 The response then carries `"sol": <amount sent>`.
 
+**Drip guards** — the drip is the only thing worth farming (fresh wallets are
+free and `role` is caller-chosen), so it is bounded separately from mUSDC:
+
+| Guard | Default | Env override | When it trips |
+|---|---|---|---|
+| Reserve | 2 SOL | `FAUCET_SOL_RESERVE` | no drip if the authority would drop below it |
+| Builder drips / IP / day | 40 | `FAUCET_SOL_DRIP_IP_DAILY_LIMIT` | no builder drip past it |
+| Player drips / IP / day | 150 | `FAUCET_PLAYER_SOL_DRIP_IP_DAILY_LIMIT` | no player drip past it |
+
+A tripped guard only skips the SOL: mUSDC still goes out (`"sol": 0`,
+`"solSkipped": "reserve" | "ip-cap"`). So a script can at worst burn the drip
+budget of its IP (40 × 0.2 + 150 × 0.02 = 11 SOL/day) down to the reserve — it
+can never take the mUSDC faucet down. A drip below the rent-exempt minimum
+(~0.00089 SOL) is ignored rather than failing the transaction.
+
 ### Event mode (in-person hackathon)
 
 Everyone in the room shares one public IP, so the default 5 claims / IP / day
@@ -117,7 +132,7 @@ FAUCET_PLAYER_SOL_DRIP=0.02     # burner wallets of builders' users (role: "play
 
 then **redeploy** (server env is bound per deployment) and top up the mint
 authority: 30 builders × 0.2 SOL ≈ 6 SOL, plus ~500 player wallets × 0.02 SOL ≈
-10 SOL → **~20 SOL** with margin:
+10 SOL → **~20 SOL** with margin (drips stop at the 2 SOL reserve anyway):
 `solana transfer EftrgEw3B744jSihxjrWcX7pW7Y6WTxBJw7RhrGbU2vi 20 --url devnet`.
 Remove the four variables and redeploy after the event.
 
@@ -138,7 +153,7 @@ curl -X POST https://pm-amm-devnet.vercel.app/api/faucet \
   -H 'content-type: application/json' -d '{"wallet":"<pubkey>"}'
 ```
 
-Responses: `{ ok, signature, amount, sol }` on success; `400` missing / invalid
+Responses: `{ ok, signature, amount, sol, solSkipped? }` on success; `400` missing / invalid
 wallet; `429` rate limited (`Retry-After` header, message says how long);
 `500` RPC error; `503` faucet not configured or mainnet.
 
