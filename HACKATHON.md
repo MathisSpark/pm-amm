@@ -125,7 +125,16 @@ Pricing math with no chain dependency: `@pm-amm/sdk/math`
   summing to 1.
 - **Tooling:** an indexer, LP dashboards, a Python / Rust client.
 
-## 7. Read next (only what you need)
+## 7. Submission & judging
+
+- **What to ship:** a **working app anyone can open and use** (a deployed URL on
+  devnet), plus its repo. A demo video is a bonus, not a substitute.
+- **Judging:** at the jury's discretion. What they look for: a real, usable
+  application and an **interesting use case** for prediction markets.
+- **Questions / stuck:** Telegram **[@mathis_btc](https://t.me/mathis_btc)**, or
+  ask the organisers in the room.
+
+## 8. Read next (only what you need)
 
 | Need | Read |
 |---|---|
@@ -137,6 +146,5 @@ Pricing math with no chain dependency: `@pm-amm/sdk/math`
 | Repo map, math invariants | [`llms.txt`](llms.txt), [`CLAUDE.md`](CLAUDE.md) |
 | The paper | [Paradigm, pm-AMM (2024)](https://www.paradigm.xyz/writing/pm-amm) |
 
-Stuck on devnet or the SDK? Open an issue on
-[sparkfun-labs/pm-amm](https://github.com/sparkfun-labs/pm-amm/issues), or ask
-the organisers in the room.
+Stuck on devnet or the SDK? Ping [@mathis_btc](https://t.me/mathis_btc) on Telegram, or open an issue on
+[sparkfun-labs/pm-amm](https://github.com/sparkfun-labs/pm-amm/issues).
