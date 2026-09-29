@@ -1,5 +1,12 @@
 import { NextResponse } from "next/server";
-import { Connection, Keypair, PublicKey, Transaction } from "@solana/web3.js";
+import {
+  Connection,
+  Keypair,
+  LAMPORTS_PER_SOL,
+  PublicKey,
+  SystemProgram,
+  Transaction,
+} from "@solana/web3.js";
 import {
   createAssociatedTokenAccountInstruction,
   getAssociatedTokenAddress,
@@ -9,14 +16,28 @@ import { clientIp, rateLimit, rateLimitUndo } from "@/lib/rate-limit";
 
 const AMOUNT = 1000_000_000; // 1000 mUSDC
 
+/** Positive integer from env, else the fallback. */
+function envInt(name: string, fallback: number): number {
+  const n = Number(process.env[name]);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback;
+}
+
+// Optional devnet SOL drip, paid by the mint authority: public devnet airdrops
+// are rate-limited per IP and often dry, which blocks a whole room of builders
+// on the same network. Off unless FAUCET_SOL_DRIP (in SOL, e.g. 0.2) is set;
+// only tops up wallets holding less than the drip amount.
+const SOL_DRIP_LAMPORTS = Math.floor(Number(process.env.FAUCET_SOL_DRIP || 0) * LAMPORTS_PER_SOL);
+
 const HOUR = 3600;
 const DAY = 24 * HOUR;
-// The mint authority pays every call (fee + ~0.002 SOL rent for a new ATA), so
-// cap how fast a script can drain it with fresh wallets. mUSDC itself is free.
+// The mint authority pays every call (fee + ~0.002 SOL rent for a new ATA, plus
+// the SOL drip when enabled), so cap how fast a script can drain it with fresh
+// wallets. mUSDC itself is free. The IP / global caps can be raised for an
+// in-person event, where everyone shares one public IP (see DEVNET.md).
 const LIMITS = [
   { scope: "wallet", limit: 1, windowSecs: HOUR },
-  { scope: "ip", limit: 5, windowSecs: DAY },
-  { scope: "global", limit: 500, windowSecs: DAY },
+  { scope: "ip", limit: envInt("FAUCET_IP_DAILY_LIMIT", 5), windowSecs: DAY },
+  { scope: "global", limit: envInt("FAUCET_GLOBAL_DAILY_LIMIT", 500), windowSecs: DAY },
 ] as const;
 
 type Scope = (typeof LIMITS)[number]["scope"];
@@ -73,13 +94,25 @@ async function mintToWallet(authority: Keypair, recipient: PublicKey, usdcMint: 
   }
   tx.add(createMintToInstruction(usdcMint, ata, authority.publicKey, AMOUNT));
 
+  let sol = 0;
+  if (SOL_DRIP_LAMPORTS > 0 && (await connection.getBalance(recipient)) < SOL_DRIP_LAMPORTS) {
+    tx.add(
+      SystemProgram.transfer({
+        fromPubkey: authority.publicKey,
+        toPubkey: recipient,
+        lamports: SOL_DRIP_LAMPORTS,
+      }),
+    );
+    sol = SOL_DRIP_LAMPORTS / LAMPORTS_PER_SOL;
+  }
+
   tx.feePayer = authority.publicKey;
   tx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
   tx.sign(authority);
 
   const sig = await connection.sendRawTransaction(tx.serialize());
   await connection.confirmTransaction(sig, "confirmed");
-  return sig;
+  return { signature: sig, sol };
 }
 
 export async function POST(req: Request) {
@@ -115,8 +148,8 @@ export async function POST(req: Request) {
 
   try {
     const authority = Keypair.fromSecretKey(Buffer.from(keyB64, "base64"));
-    const signature = await mintToWallet(authority, recipient, usdcMint);
-    return NextResponse.json({ ok: true, signature, amount: AMOUNT / 1e6 });
+    const { signature, sol } = await mintToWallet(authority, recipient, usdcMint);
+    return NextResponse.json({ ok: true, signature, amount: AMOUNT / 1e6, sol });
   } catch (e: unknown) {
     // A failed mint shouldn't cost the user their quota.
     await Promise.all(limits.taken.map(rateLimitUndo));

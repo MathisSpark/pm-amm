@@ -11,7 +11,7 @@
 
 **Program ID**: `GV1FMGHRYBjQLaghE5fnGuYCuCcpdt3GD5xEX3TwN16y` ([Devnet Explorer](https://explorer.solana.com/address/GV1FMGHRYBjQLaghE5fnGuYCuCcpdt3GD5xEX3TwN16y?cluster=devnet))
 
-**Docs**: [SDK quickstart](packages/sdk/README.md) · [full API reference](doc/api-reference.md) (every instruction + SDK function) · [the paper](doc/wp-para.md)
+**Build on it**: [HACKATHON.md](HACKATHON.md) (devnet funds + quickstart, agent-ready) · **Docs**: [SDK quickstart](packages/sdk/README.md) · [full API reference](doc/api-reference.md) (every instruction + SDK function) · [the paper](doc/wp-para.md)
 
 ---
 

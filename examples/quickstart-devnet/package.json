@@ -1,0 +1,15 @@
+{
+  "name": "pm-amm-quickstart-devnet",
+  "private": true,
+  "description": "Zero to a live pm-AMM market on Solana devnet in one command.",
+  "main": "index.cjs",
+  "scripts": {
+    "start": "node index.cjs"
+  },
+  "dependencies": {
+    "@anchor-lang/core": "^1.0.0",
+    "@pm-amm/sdk": "^0.2.0",
+    "@solana/spl-token": "^0.4.0",
+    "@solana/web3.js": "^1.98.0"
+  }
+}

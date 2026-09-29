@@ -82,7 +82,9 @@ Both build the `Program` once with the address overridden to `programId`, so a s
 
 ---
 
-## 3. On-chain instructions (26)
+## 3. On-chain instructions (26 + 8 bet vault)
+
+> The 8 Bet Vault v2 instructions (Sprint 25: `initialize_bet_vault`, `bet_commit`, `launch_bet_vault`, `resolve_bet_vault`, `settle_bet_vault`, `void_bet_vault`, `claim_bet`, `refund_bet`) are specified in [`bet-vault-v2.md`](bet-vault-v2.md); their SDK surface is in `packages/sdk/llms.txt`.
 
 Notation: `(s)` = signer, `(w)` = writable. Only the decision-relevant accounts are listed; the SDK derives the rest. Each entry ends with the SDK call that wraps it.
 

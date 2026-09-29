@@ -3,7 +3,7 @@
 > Machine-readable, complete API surface for the pm-AMM Solana SDK. Optimized
 > for coding agents (Claude, Codex, …) to generate correct integration code
 > WITHOUT reading the source. Every public symbol, signature, and type is here.
-> Narrative quickstart: README.md. **Most complete reference** (the 26 on-chain instructions + SDK + math + end-to-end recipes): `doc/api-reference.md` in the repo, also served at `/api-reference.md`. Human visual guide: the app's `/docs` route.
+> **Hackathon / first contact: start with `HACKATHON.md` in the repo** (devnet funds, a runnable quickstart, gotchas). Narrative quickstart: README.md. **Most complete reference** (on-chain instructions + SDK + math + end-to-end recipes; Bet Vault v2 is in `doc/bet-vault-v2.md`): `doc/api-reference.md` in the repo, also served at `/api-reference.md`. Human visual guide: the app's `/docs` route.
 
 pm-AMM is a faithful implementation of the Paradigm pm-AMM (Moallemi & Robinson, 2024):
 prediction-market AMM with time-decaying liquidity `L_eff = L0*sqrt(T-t)` (uniform LVR),
@@ -35,6 +35,26 @@ USDC_MINT  = EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v    // real USDC (Circl
 ```
 Pass the cluster's USDC mint as `collateralMint` to the client; nothing else changes.
 
+### Devnet test funds (no real value)
+
+```
+// 1,000 mUSDC per claim (1 per wallet per hour); creates the token account.
+// During events it also drips devnet SOL to low-balance wallets ("sol" field).
+POST https://pm-amm-devnet.vercel.app/api/faucet   {"wallet":"<base58 pubkey>"}
+  -> 200 {"ok":true,"signature","amount":1000,"sol":number} | 400 bad wallet | 429 {"error"} + Retry-After | 503 mainnet/unconfigured
+// Devnet SOL otherwise: `solana airdrop 1 <pubkey> --url devnet` or https://faucet.solana.com (rate-limited per IP).
+```
+Reference app (devnet): https://pm-amm-devnet.vercel.app — market page `/market/<marketId>` (the numeric id returned by `createMarket`, not the PDA).
+Runnable Node example (keypair → faucet → create market → swap): `examples/quickstart-devnet/index.cjs`.
+
+### Signing client in Node (CJS)
+
+```js
+const { AnchorProvider, Wallet } = require("@anchor-lang/core");
+const provider = new AnchorProvider(connection, new Wallet(keypair), { commitment: "confirmed" });
+const client = PmAmmClient.fromProvider(provider, PROGRAM_ID, USDC_MINT);
+```
+
 ## Install
 
 ```
@@ -64,7 +84,7 @@ client.connection: Connection
 client.programId / collateralMint / metaplexProgramId: PublicKey
 client.program: Program<PmAmm>          // raw Anchor program (typed)
 client.accounts: ProgramAccountNamespace
-client.ix: { ...26 builders }            // see "Instruction builders"
+client.ix: { ...34 builders }            // see "Instruction builders"
 client.send: { ...send helpers }         // see "Send helpers"
 client.flows: { ...orchestrations }      // see "Flows"
 
@@ -170,6 +190,15 @@ client.send.vaultCommit(vault, side: Side, amountUsdc: number): Promise<string>
 client.send.launchVaultMarket(vault): Promise<{ marketId: number; marketPda: string; signature: string }>
 client.send.claimCommitter(vault, market): Promise<string>
 client.send.refundCommit(vault): Promise<string>
+// bet vault v2 (winner takes the pot; amounts in HUMAN units of the vault's collateral)
+client.send.createBetVault(input: CreateBetVaultInput): Promise<{ vaultId: number; betVaultPda: string; signature: string }>
+client.send.betCommit(betVault, side: Side, amount: number): Promise<string>        // before commitEndTs; allowlist enforced
+client.send.launchBetVault(betVault): Promise<{ marketId: number; marketPda: string; signature: string }>  // authority or resolver only, after commitEndTs
+client.send.resolveBetVault(betVault, side: Side): Promise<string>                  // resolver only, after marketEndTs
+client.send.settleBetVault(betVault): Promise<string>                               // permissionless, after resolve
+client.send.voidBetVault(betVault): Promise<string>                                 // permissionless, after marketEndTs + voidGraceSecs if never resolved
+client.send.claimBet(betVault): Promise<string>                                     // after settle (winners pro-rata) or void (everyone refunded pro-rata)
+client.send.refundBet(betVault): Promise<string>                                    // 1:1 refund if the vault can never launch (< minTotal, one-sided, odds outside 1..99%)
 // multi-outcome vault
 client.send.createVaultGroup(input: CreateVaultGroupInput): Promise<{ vaultId: number; vaultPda: string; signature: string }>
 client.send.vaultCommitGroup(vault, legIndex: number, amountUsdc: number): Promise<string>
@@ -211,6 +240,15 @@ client.flows.claimAllGroupWinnings(args: {
 interface CreateMarketInput { name: string; durationSecs: number; initialPriceBps?: number; depositUsdc?: number }
 interface CreateVaultInput { name: string; commitDurationSecs: number; marketDurationSecs: number; minTotalUsdc: number }
 interface CreateVaultGroupInput { name: string; legNames: string[]; commitDurationSecs: number; marketDurationSecs: number; minTotalUsdc: number }  // legNames 2..8
+interface CreateBetVaultInput {
+  name: string; commitDurationSecs: number; marketDurationSecs: number;
+  minTotal: number;              // HUMAN units of collateral
+  lpBps?: number;                // share of the pot deposited as AMM liquidity; default 5000; capped at launch to the favourite's stake share
+  resolver?: PublicKey;          // default: creator
+  allowlist?: PublicKey[];       // up to 8 keys allowed to commit; empty = open
+  voidGraceSecs?: number;        // 300 .. 30 days; default 7 days
+  collateralMint?: PublicKey;    // default: client's collateral
+}
 interface GroupCreateInput { name: string; legNames: string[]; durationSecs: number; budgetPerLegUsdc: number }  // legNames 2..32
 ```
 
@@ -227,6 +265,27 @@ CommitPositionAccount { vault, owner, yesAmount, noAmount, claimed: boolean, bum
 CommitmentVaultGroupAccount { authority, vaultId, collateralMint, name, legCount: number, legNames: number[][], legTotals: BN[], commitEndTs, marketEndTs, commitCount: number, minTotal, groupMarketInitialized: boolean, legsLaunched: number, groupMarket, bump }
 CommitPositionGroupAccount { vault, owner, legAmounts: BN[], claimed: boolean, bump }
 ```
+
+Bet vault (Sprint 25): `client.betVaultPda(id)`, `client.betPosition(vault, owner)`, `client.fetchBetVault(pda)`, `client.fetchAllBetVaults()`, `client.fetchBetPosition(vault, owner)`.
+```ts
+BetVaultAccount { authority, resolver, vaultId, collateralMint, name, commitEndTs, marketEndTs, yesTotal, noTotal, commitCount, minTotal,
+  lpBps, effectiveLpBps, allowlistLen, allowlist, launched, priceBps /* launch odds = yesTotal/total */, market, winningSide /* 0 | 1=YES | 2=NO */, settled, ... }
+BetPositionAccount { vault, owner, yesAmount, noAmount, bump }
+```
+The vault PDA is `market.authority` of the launched market: it collects the creator half of the fee (into the pot) and only `resolveBetVault` can resolve that market.
+
+## Current price (how the reference app computes it)
+
+```ts
+const lEff = i80f48ToNumber(m.lZero) * Math.sqrt(Math.max(m.endTs.toNumber() - nowSecs, 1));
+const price = priceFromReserves(i80f48ToNumber(m.reserveYes), i80f48ToNumber(m.reserveNo), lEff);
+// minOutput for a USDC->YES buy of `amountIn` raw units, 1% slippage (fee-aware):
+const { output } = estimateSwapOutput(x, y, lEff, amountIn * 0.98, "yes");  const minOut = Math.floor(output * 0.99);
+```
+
+## Limits enforced on-chain
+
+Market duration >= 300 s · vault commit window >= 60 s · min commit 1 USDC · names 1..64 bytes (leg names 1..32) · initialPriceBps 100..9900 (0 = 50/50) · group legs 2..32 · vault-group legs 2..8. Resolution is admin-only (the creator / resolver), no oracle.
 
 ## Math — `@pm-amm/sdk/math` (pure, no chain deps; float64, display/estimation)
 

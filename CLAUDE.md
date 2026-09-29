@@ -3,7 +3,7 @@
 ## Project
 
 Production implementation of the Paradigm pm-AMM paper (Moallemi & Robinson, Nov 2024).
-Built for the $PREDICT hackathon. Deadline: April 26, 2026.
+Live on devnet and mainnet. Building on it (hackathon, first contact)? Start with `HACKATHON.md`.
 
 ## Devnet
 

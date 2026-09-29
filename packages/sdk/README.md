@@ -10,7 +10,7 @@ One typed `PmAmmClient` wraps everything:
 
 - **PDA helpers** — every account address, bound to your program id
 - **Reads** — typed, decoded account fetchers
-- **`ix.*`** — composable `TransactionInstruction` builders for all 26 instructions
+- **`ix.*`** — composable `TransactionInstruction` builders for all 34 instructions
 - **`send.*`** — build + compute-budget + ATA-ensure + send, for the common case
 - **`flows.*`** — multi-transaction orchestrations (group create / resolve / claim)
 - **`@pm-amm/sdk/math`** — the float-64 pricing & LP-simulation math (no chain deps)
@@ -98,7 +98,7 @@ const ix = await client.ix.swap({ signer, market: marketPda, direction: "usdcToY
   amountIn: 10_000_000, minOutput: minOut });
 ```
 
-`client.ix.*` exposes all 26 instructions (`initializeMarket`, `depositLiquidity`, `swap`,
+`client.ix.*` exposes all 34 instructions (`initializeMarket`, `depositLiquidity`, `swap`,
 `withdrawLiquidity`, `accrue`, `claimLpResiduals`, `redeemPair`, `suggestLZero`,
 `resolveMarket`, `claimWinnings`, the 5 group instructions, and the 11 vault instructions).
 
