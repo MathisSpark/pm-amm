@@ -84,14 +84,20 @@ async function ensureUsdc(conn, owner) {
   if (body.sol) console.log(`faucet also sent ${body.sol} devnet SOL`);
 }
 
-/** Current YES price + L_eff, the way the reference app computes them. */
+/**
+ * Current YES price + L_eff, with reserves rescaled to now. Stored reserves date
+ * from `lastAccrualTs`, and every swap accrues first, so quoting them against
+ * today's L_eff over-promises (by 15-80% on a market idle for a day).
+ * For exact quotes in all 6 directions, use examples/helpers/pm-amm-helpers.ts.
+ */
 function marketState(m) {
   const now = Math.floor(Date.now() / 1000);
   const endTs = m.endTs.toNumber();
   const lZero = i80f48ToNumber(m.lZero);
   const lEff = lZero * Math.sqrt(Math.max(endTs - now, 1));
-  const x = i80f48ToNumber(m.reserveYes);
-  const y = i80f48ToNumber(m.reserveNo);
+  const lLast = lZero * Math.sqrt(Math.max(endTs - m.lastAccrualTs.toNumber(), 1));
+  const x = i80f48ToNumber(m.reserveYes) * (lEff / lLast);
+  const y = i80f48ToNumber(m.reserveNo) * (lEff / lLast);
   return { x, y, lEff, price: priceFromReserves(x, y, lEff) };
 }
 

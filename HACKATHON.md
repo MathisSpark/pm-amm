@@ -87,6 +87,7 @@ in one tap, with no popups.
 npm i @pm-amm/sdk @solana/web3.js @anchor-lang/core @solana/spl-token bs58
 curl -sO https://predict-pm-amm.dev/burner/burner.ts
 curl -sO https://predict-pm-amm.dev/burner/useBurnerWallet.ts
+curl -sO https://predict-pm-amm.dev/helpers/pm-amm-helpers.ts   # exact quotes
 ```
 
 ```tsx
@@ -116,17 +117,31 @@ Pricing math with no chain dependency: `@pm-amm/sdk/math`
 
 - **Node + ESM:** `@anchor-lang/core` is CommonJS, so `import { … } from "@pm-amm/sdk"`
   under raw Node ESM fails on `BN`. Use `require()` (`.cjs`) or a bundler.
-- **Browser `Buffer`:** Vite and plain bundlers need a polyfill (`npm i buffer`,
-  `globalThis.Buffer = Buffer` before Solana code loads). Next.js has one.
+- **Browser `Buffer`:** Vite and plain bundlers need a polyfill (`npm i buffer`).
+  Setting `globalThis.Buffer` at the top of `main.tsx` is not enough (ESM imports
+  are hoisted): put it in `polyfills.ts`, `import "./polyfills"` first, then
+  `import("./App")` dynamically. Next.js has one.
 - **One copy of web3.js:** the Solana libs are peer deps. Two copies of
   `@solana/web3.js` break `PublicKey instanceof`.
 - **Units:** `send.*` takes USDC in **human** units (`50` = 50 mUSDC), **except**
   `send.swap` and `send.redeemPair`, which take **raw** 6-dp units (`5_000_000` = 5).
   `ix.*` builders always take raw units.
-- **Fee:** 2% on the USDC leg of every buy/sell (YES↔NO is free).
-  `estimateSwapOutput` ignores it: quote on `0.98 × amountIn` to size `minOutput`.
-- **Current price:** `L_eff = i80f48ToNumber(market.lZero) × √(endTs − now)`, then
-  `priceFromReserves(i80f48ToNumber(reserveYes), i80f48ToNumber(reserveNo), L_eff)`.
+- **Quotes & `minOutput`: use [`pm-amm-helpers.ts`](examples/helpers/pm-amm-helpers.ts)**
+  (`quoteSwap(market, direction, amountIn)` → exact output in all 6 directions,
+  2% fee included; `minOutput(quote)` → 1% slippage). Don't hand-roll it: stored
+  reserves date from `lastAccrualTs` and every swap accrues first, so quoting them
+  against today's `L_eff` over-promises (+15–80% on a market idle for a day) and
+  the swap fails with `SlippageExceeded (6007)`. `estimateSwapOutput` only covers
+  buys and ignores the fee. `marketState(market)` gives the current price.
+- **Public devnet RPC = rate-limited (429).** Read markets in one call
+  (`fetchMarkets(client, pdas)` in the helpers), positions with
+  `getMultipleParsedAccounts`, poll every ≥ 15 s and pause when the tab is hidden.
+  `useBurnerWallet({ rpc })` takes your own RPC.
+- **`ix.swap` needs BOTH the YES and NO token accounts** of the user, whatever the
+  direction (else `AccountNotInitialized (3012)`). `send.swap` creates them;
+  with `ix.*`, prepend `createAssociatedTokenAccountIdempotentInstruction` for both.
+- **Resolved markets:** `market.winningSide` is `0` unresolved, `1` YES, `2` NO.
+  Winners then `send.claimWinnings(market)` (1 mUSDC per winning token).
 - **Durations:** markets ≥ 300 s; vault commit windows ≥ 60 s. A full
   create → trade → resolve → claim cycle takes about 5 minutes.
 - **Resolution is manual:** whoever creates a market is its authority and
@@ -165,6 +180,7 @@ Pricing math with no chain dependency: `@pm-amm/sdk/math`
 | Every SDK signature, type and recipe (dense, for agents) | [`packages/sdk/llms.txt`](packages/sdk/llms.txt) (also at `https://pm-amm-devnet.vercel.app/llms.txt`) |
 | Every on-chain instruction: accounts, args, errors | [`doc/api-reference.md`](doc/api-reference.md) |
 | SDK quickstart for humans | [`packages/sdk/README.md`](packages/sdk/README.md) |
+| Exact quotes, market state, batched reads | [`examples/helpers/pm-amm-helpers.ts`](examples/helpers/pm-amm-helpers.ts) |
 | Burner wallets for your users | [`examples/burner-wallet/README.md`](examples/burner-wallet/README.md) |
 | Bet vault design + payout examples | [`doc/bet-vault-v2.md`](doc/bet-vault-v2.md) |
 | Devnet ops (faucet internals, seeding, limits) | [`DEVNET.md`](DEVNET.md) |

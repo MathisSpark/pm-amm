@@ -18,7 +18,7 @@ continuous LP yield (dC_t), and permissionless Commitment Vaults (binary + multi
 - **Swap fee (2%)**: every USDC↔YES/NO swap charges a 2% protocol fee on the USDC leg (off the input on a buy, off the curve output on a sell); pure YES↔NO is free. Split 50% protocol DAO / 50% market creator. The SDK handles the fee accounts for you — `ix.swap`/`send.swap` derive `daoUsdc` + (optional) `creatorUsdc` automatically. Consequence: a buy of N USDC trades ~`0.98·N` on the curve. `math.estimateSwapOutput` is **fee-unaware** → apply the 2% yourself when sizing `minOutput`.
 - **PDAs**: pure `derive*(programId, ...)` functions take programId FIRST. The client exposes bound versions without programId (`client.yesMint(market)`).
 - **Address override**: the client overrides the bundled IDL `address` with your `programId` once; the bundled value is irrelevant.
-- **Compute budget + ATAs**: `send.*` auto-prepends the correct CU budget and creates missing associated token accounts. `ix.*` does NEITHER — you compose those yourself.
+- **Compute budget + ATAs**: `send.*` auto-prepends the correct CU budget and creates missing associated token accounts. `ix.*` does NEITHER — you compose those yourself. NOTE: `ix.swap` requires BOTH the user's YES and NO ATAs to exist for every direction (else `AccountNotInitialized 3012`).
 - **Signing**: `send.*` and `flows.*` require a provider (use `fromProvider`). `ix.*`, reads, and PDA helpers work read-only.
 - **Peer deps** (consumer provides a single copy): `@solana/web3.js@^1.98`, `@anchor-lang/core@^1.0`, `@solana/spl-token@^0.4`. Browser needs a `Buffer` polyfill. `BN` is imported from `@anchor-lang/core`.
 - **Node ESM caveat**: `@anchor-lang/core` is CJS; importing the SDK's ESM build under raw Node fails on the named `BN` import. Use a bundler (Next/Vite) or the CJS build (`require`).
@@ -275,14 +275,21 @@ BetPositionAccount { vault, owner, yesAmount, noAmount, bump }
 ```
 The vault PDA is `market.authority` of the launched market: it collects the creator half of the fee (into the pot) and only `resolveBetVault` can resolve that market.
 
-## Current price (how the reference app computes it)
+## Current price & exact quotes
 
+Stored reserves date from `lastAccrualTs`; every swap accrues first. Rescale them to `now` or quotes over-promise (+15–80% on a market idle for a day → `SlippageExceeded (6007)`):
 ```ts
-const lEff = i80f48ToNumber(m.lZero) * Math.sqrt(Math.max(m.endTs.toNumber() - nowSecs, 1));
-const price = priceFromReserves(i80f48ToNumber(m.reserveYes), i80f48ToNumber(m.reserveNo), lEff);
-// minOutput for a USDC->YES buy of `amountIn` raw units, 1% slippage (fee-aware):
-const { output } = estimateSwapOutput(x, y, lEff, amountIn * 0.98, "yes");  const minOut = Math.floor(output * 0.99);
+const lZero = i80f48ToNumber(m.lZero), endTs = m.endTs.toNumber();
+const lEff  = lZero * Math.sqrt(Math.max(endTs - nowSecs, 1));
+const lLast = lZero * Math.sqrt(Math.max(endTs - m.lastAccrualTs.toNumber(), 1));
+const x = i80f48ToNumber(m.reserveYes) * (lEff / lLast), y = i80f48ToNumber(m.reserveNo) * (lEff / lLast);
+const price = priceFromReserves(x, y, lEff);
 ```
+Exact quotes in all 6 directions (buy, sell, YES<->NO; 2% fee included; matches `simulateTransaction` to <0.01%): copy `examples/helpers/pm-amm-helpers.ts` → `quoteSwap(m, direction, amountInRaw)` → `{ out, fee }`, `minOutput(quote, slippageBps = 100)`, `marketState(m)`, `fetchMarkets(client, pdas)` (one RPC call). `estimateSwapOutput` covers buys only and is fee-unaware.
+
+`Market.winningSide`: 0 = unresolved, 1 = YES, 2 = NO.
+
+Public devnet RPC is rate-limited (429): batch reads (`fetchMarkets`, `getMultipleParsedAccounts`), poll >= 15 s, pause when the tab is hidden.
 
 ## Limits enforced on-chain
 

@@ -15,11 +15,13 @@ embedded-wallet provider (e.g. Privy).
 |---|---|
 | [`burner.ts`](burner.ts) | framework-agnostic: create / load / export / import the keypair, fund it through the faucet, build a signing `PmAmmClient` |
 | [`useBurnerWallet.ts`](useBurnerWallet.ts) | React hook on top of it |
+| [`../helpers/pm-amm-helpers.ts`](../helpers/pm-amm-helpers.ts) | exact quotes in all 6 directions (`quoteSwap`, `minOutput`), `marketState`, batched `fetchMarkets` |
 
 ```bash
 npm i @pm-amm/sdk @solana/web3.js @anchor-lang/core @solana/spl-token bs58
 curl -sO https://predict-pm-amm.dev/burner/burner.ts
 curl -sO https://predict-pm-amm.dev/burner/useBurnerWallet.ts
+curl -sO https://predict-pm-amm.dev/helpers/pm-amm-helpers.ts
 ```
 
 ## Use it (React / Next.js)
@@ -28,16 +30,17 @@ curl -sO https://predict-pm-amm.dev/burner/useBurnerWallet.ts
 "use client";
 import { PublicKey } from "@solana/web3.js";
 import { useBurnerWallet } from "./useBurnerWallet";
-
-// minOut: see "Current price" in llms.txt (quote on 98% of the input, then slippage)
+import { minOutput, quoteSwap } from "./pm-amm-helpers"; // https://predict-pm-amm.dev/helpers/pm-amm-helpers.ts
 
 export function BuyYes({ market }: { market: PublicKey }) {
+  // `m` = the MarketAccount, e.g. from fetchMarkets(client, [market])
   const { client, publicKey, balances, status, error, refresh } = useBurnerWallet();
   if (status !== "ready") return <p>{status === "error" ? error : "Setting up your wallet…"}</p>;
   return (
     <button
       onClick={async () => {
-        await client!.send.swap(market, "usdcToYes", 5_000_000, minOut); // raw 6-dp units
+        const q = quoteSwap(m, "usdcToYes", 5_000_000); // raw 6-dp units, fee included
+        await client!.send.swap(market, "usdcToYes", 5_000_000, minOutput(q)); // 1% slippage
         refresh();
       }}
     >
@@ -72,8 +75,22 @@ not from your users' burners.
 
 ## Gotchas
 
-- **Vite / plain bundlers need a `Buffer` polyfill** (`npm i buffer`, then
-  `globalThis.Buffer = Buffer` before anything Solana loads). Next.js provides one.
+- **Vite / plain bundlers need a `Buffer` polyfill.** Setting it at the top of
+  `main.tsx` is NOT enough: ESM imports are hoisted, so Solana code loads first.
+  Put it in its own module, import that first, then load the app dynamically:
+  ```ts
+  // polyfills.ts
+  import { Buffer } from "buffer";
+  globalThis.Buffer = Buffer;
+  // main.tsx
+  import "./polyfills";
+  import("./App").then(({ mount }) => mount());
+  ```
+  Next.js provides `Buffer` already.
+- **The public devnet RPC rate-limits hard (429).** Poll every 15 s or more and
+  pause when the tab is hidden (`document.visibilityState`); read markets in one
+  call with `fetchMarkets()` and positions with `getMultipleParsedAccounts`;
+  or pass your own RPC: `useBurnerWallet({ rpc: "https://…" })`.
 - The hook creates the wallet after mount (`useEffect`), so it's SSR-safe;
   `client` is `null` until then.
 - Every visitor gets a new wallet. Anyone can read the key from DevTools, which

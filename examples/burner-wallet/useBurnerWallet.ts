@@ -68,8 +68,13 @@ export function useBurnerWallet(opts: { storageKey?: string; rpc?: string } = {}
     if (keypair) setBalances(await getBalances(connection, keypair.publicKey));
   }, [connection, keypair]);
 
+  // Keypair.publicKey is a getter that returns a NEW PublicKey on every access:
+  // returning it raw would re-run every effect that depends on it on every
+  // render (an endless RPC loop). Memoize it on the keypair.
+  const publicKey = useMemo(() => keypair?.publicKey ?? null, [keypair]);
+
   return {
-    publicKey: keypair?.publicKey ?? null,
+    publicKey,
     client,
     connection,
     balances,
