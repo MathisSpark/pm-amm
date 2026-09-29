@@ -1,0 +1,12 @@
+# CLI deploys upload the repo root (the project's Root Directory is `app/`, and
+# its install/build run from the workspace root). Only the front + SDK are needed.
+/anchor/
+/oracle/
+/doc/
+/scripts/
+/idl/
+**/node_modules
+**/.next
+packages/*/dist
+/.env*
+app/.env*

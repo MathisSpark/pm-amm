@@ -9,16 +9,16 @@ Built for the $PREDICT hackathon. Deadline: April 26, 2026.
 
 ### Current deployment (Sprint 24 — fresh program ID for a clean market base)
 - **Program ID**: `GV1FMGHRYBjQLaghE5fnGuYCuCcpdt3GD5xEX3TwN16y`
-- **USDC mock mint**: `3WQ8hCqTNwjrh8WzE2XyoZoUrd1miPcwWfMkmFPUMEWZ` (6 decimals, mint authority = `6NG87…`) — unchanged across redeploys (the mint is independent of the program ID)
-- **Upgrade authority**: `6NG87yZrQw6zH6Au8fHbYcD7Dken5smAzisLeXazpt8E` (single-key — move to multisig before mainnet)
+- **USDC mock mint**: `3WQ8hCqTNwjrh8WzE2XyoZoUrd1miPcwWfMkmFPUMEWZ` (6 decimals) — unchanged across redeploys (the mint is independent of the program ID). Mint authority = dedicated key `EftrgEw3B744jSihxjrWcX7pW7Y6WTxBJw7RhrGbU2vi` (`~/.config/solana/pm-amm-devnet-mint.json`, since 2026-09-28 — was `6NG87…`); it is the faucet's `MINT_AUTHORITY_KEY` and is NOT the upgrade key. Full devnet guide: `DEVNET.md`.
+- **Upgrade authority**: `ETGKSFc7KMu32foPegEGiqFiDX3B2bPXhiFhvm8K7R6Y` (`~/.config/solana/pm-amm-devnet-upgrade.json`, since 2026-09-28 — rotated away from `6NG87…`, whose secret sat in the env of a Vercel project we lost access to). Single-key.
 - **TS SDK**: `@pm-amm/sdk` (`packages/sdk`) — wraps all 34 instructions + PDAs + reads + math; the front consumes it.
-- **Deployer/faucet keypair**: `~/.config/solana/id.json` (= upgrade + mint authority). `pnpm run deploy` deploys/upgrades via the program keypair `anchor/target/deploy/pm_amm-keypair.json` (the prior B1fu keypair is backed up at `pm_amm-keypair.B1fu.bak.json`).
+- **Operator keypair**: `~/.config/solana/id.json` (`6NG87…`) — seeds markets (their authority/resolver) and funds e2e wallets; no longer upgrade or mint authority. `pnpm run deploy` signs with the upgrade key (`DEVNET_UPGRADE_KEYPAIR` to override). `pnpm run deploy` deploys/upgrades via the program keypair `anchor/target/deploy/pm_amm-keypair.json` (the prior B1fu keypair is backed up at `pm_amm-keypair.B1fu.bak.json`).
 
 ## Mainnet (LIVE)
 
 Full guide: `MAINNET.md`. Key facts:
 - **Program deployed** at `GV1FMGHRYBjQLaghE5fnGuYCuCcpdt3GD5xEX3TwN16y` (same ID as devnet — `declare_id!` compiled in, clusters isolated).
-- **Upgrade authority**: `2TBg1fasPKnBczbtJpvD6LmEUxNnCoigTDQHB3VnUpv7` (dedicated mainnet key — NOT the devnet `6NG87…`). Single-key.
+- **Upgrade authority**: `2TBg1fasPKnBczbtJpvD6LmEUxNnCoigTDQHB3VnUpv7` (dedicated mainnet key — NOT any devnet key). Single-key.
 - **Real USDC**: `EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v` (Circle, 6 decimals).
 - **Protocol DAO** (50% of the swap fee): `4qXyczAr5DuBVaHUwmZT5Xt6hgQ6RwqBYcFGtrv8QEph`, compiled into `swap.rs` (was `HKLj…` before the Sprint 25 upgrade).
 - **Sprint 25 upgrade LIVE** (2026-09-23, slot 449755892): surplus fix + Bet Vault v2 + swap creator-fee fix + LP shares ∝ L_0 + new DAO. Same `.so` as devnet (SHA-256 `5106fe71…`).
@@ -47,8 +47,8 @@ Full guide: `MAINNET.md`. Key facts:
 # From root — main aliases
 pnpm run build         # Build program + IDL (anchor build + idl build)
 pnpm run dev           # Frontend dev server (cd app && pnpm dev)
-pnpm run deploy        # Deploy .so to devnet (program ID 8V872...)
-pnpm run seed          # Seed devnet markets (scripts/seed-markets.ts)
+pnpm run deploy        # Deploy/upgrade .so on devnet (program ID GV1F…)
+pnpm run seed          # Seed live devnet markets, idempotent (scripts/seed-devnet.cjs; DRY_RUN=1 to preview)
 pnpm run musdc         # Mint mock USDC on devnet
 
 # Tests

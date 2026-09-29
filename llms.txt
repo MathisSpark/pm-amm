@@ -52,13 +52,13 @@ Landing `/` + live feed `/markets` + create flows + `/docs` (Simple/Detailed tab
 - [app/src/lib/constants.ts](app/src/lib/constants.ts): reads env (`NEXT_PUBLIC_SOLANA_CLUSTER`, program id, USDC mint, RPC); `IS_MAINNET` gates the faucet.
 - [app/src/components/trade-panel.tsx](app/src/components/trade-panel.tsx): swap UI (composes the tx, creates the fee ATAs, slippage `minOutput`).
 - [app/src/hooks/use-swap-quote.ts](app/src/hooks/use-swap-quote.ts): on-chain-sim-first quote with a fee-aware client-side fallback.
-- [app/src/app/api/faucet/route.ts](app/src/app/api/faucet/route.ts): mock-USDC faucet — **hard-disabled on mainnet** (503).
+- [app/src/app/api/faucet/route.ts](app/src/app/api/faucet/route.ts): mock-USDC faucet — **hard-disabled on mainnet** (503); rate-limited per wallet / IP / day (`app/src/lib/rate-limit.ts`, Redis-backed when KV is set).
 - [app/src/app/docs/page.tsx](app/src/app/docs/page.tsx): in-app docs (Simple + per-function Detailed tabs).
 
 ## Deployment
 - [MAINNET.md](MAINNET.md): mainnet-beta runbook (build → fund a dedicated authority key → `pnpm run deploy:mainnet` with a **dedicated RPC + priority fee** → Vercel env → smoke-test). Documents the knowingly-accepted risks.
 - **Mainnet (LIVE)**: program `GV1FMGHRYBjQLaghE5fnGuYCuCcpdt3GD5xEX3TwN16y`, upgrade authority `2TBg1fasPKnBczbtJpvD6LmEUxNnCoigTDQHB3VnUpv7`, real USDC `EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v`.
-- **Devnet**: same program ID; mock USDC `3WQ8hCqTNwjrh8WzE2XyoZoUrd1miPcwWfMkmFPUMEWZ` (mint authority `6NG87yZrQw6zH6Au8fHbYcD7Dken5smAzisLeXazpt8E`); `pnpm run deploy`, `pnpm run musdc`, `pnpm run seed`.
+- **Devnet**: same program ID; mock USDC `3WQ8hCqTNwjrh8WzE2XyoZoUrd1miPcwWfMkmFPUMEWZ` (mint authority `EftrgEw3B744jSihxjrWcX7pW7Y6WTxBJw7RhrGbU2vi`, a dedicated key separate from the upgrade authority `ETGKSFc7KMu32foPegEGiqFiDX3B2bPXhiFhvm8K7R6Y`); guide in [DEVNET.md](DEVNET.md); `pnpm run deploy`, `pnpm run musdc`, `pnpm run seed`.
 - [anchor/scripts/deploy-mainnet.sh](anchor/scripts/deploy-mainnet.sh): the mainnet deploy/upgrade script (`--use-rpc` + `--with-compute-unit-price` + `--max-len`).
 
 ## Tests (must stay green)

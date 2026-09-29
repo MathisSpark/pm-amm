@@ -30,3 +30,4 @@ oracle/.venv
 .claude/
 packages/*/dist
 packages/*/*.tgz
+.vercel

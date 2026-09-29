@@ -34,6 +34,17 @@ const nowS = () => Math.floor(Date.now() / 1000);
 const kp = Keypair.fromSecretKey(
   Uint8Array.from(JSON.parse(fs.readFileSync(path.join(os.homedir(), ".config/solana/id.json")))),
 );
+// Mock-USDC mint authority: a dedicated key, separate from the upgrade key (id.json).
+const mintAuthority = Keypair.fromSecretKey(
+  Uint8Array.from(
+    JSON.parse(
+      fs.readFileSync(
+        process.env.MINT_AUTHORITY_KEYPAIR ||
+          path.join(os.homedir(), ".config/solana/pm-amm-devnet-mint.json"),
+      ),
+    ),
+  ),
+);
 class NodeWallet {
   constructor(p) { this.payer = p; }
   get publicKey() { return this.payer.publicKey; }
@@ -61,9 +72,9 @@ async function step(name, fn) {
   const me = kp.publicKey;
   console.log("signer:", me.toBase58(), "\nrpc:", rpc().slice(0, 40), "\n");
 
-  // top up USDC (id.json is the mint authority)
+  // top up USDC (signed by the dedicated mint authority)
   const ata = await getOrCreateAssociatedTokenAccount(connection, kp, USDC, me);
-  await mintTo(connection, kp, USDC, ata.address, kp, 3000_000000);
+  await mintTo(connection, kp, USDC, ata.address, mintAuthority, 3000_000000);
   console.log("minted 3000 mock USDC to signer\n");
 
   const px = (m) => priceFromReserves(i80f48ToNumber(m.reserveYes), i80f48ToNumber(m.reserveNo),

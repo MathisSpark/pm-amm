@@ -239,6 +239,8 @@ pnpm run dev
 pnpm run deploy
 ```
 
+Devnet (mock USDC, faucet, operator tasks): see [DEVNET.md](DEVNET.md). Mainnet: [MAINNET.md](MAINNET.md).
+
 ## Environment Variables
 
 Copy `.env.example` to `.env.local` in the `app/` directory:
