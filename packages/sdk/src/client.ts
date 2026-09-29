@@ -194,6 +194,10 @@ export class PmAmmClient {
   fetchMarket(pda: PublicKey): Promise<MarketAccount | null> {
     return this.accounts.market.fetchNullable(pda);
   }
+  /** Many markets in ONE RPC call (the public devnet RPC rate-limits hard). null = not a market. */
+  fetchMarkets(pdas: PublicKey[]): Promise<(MarketAccount | null)[]> {
+    return this.program.account.market.fetchMultiple(pdas) as Promise<(MarketAccount | null)[]>;
+  }
   fetchAllMarkets(dataSize?: number) {
     return this.accounts.market.all(dataSize ? [{ dataSize }] : undefined);
   }

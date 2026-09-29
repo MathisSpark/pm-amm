@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [sdk 0.3.0] — 2026-09-29
+
+### Added (`@pm-amm/sdk`)
+- `marketState(market, now?)` (`@pm-amm/sdk/math`): price, time left, resolution
+  (`winner`), with reserves rescaled from `lastAccrualTs` to `now`. Pairing the
+  stored reserves with today's `L_eff` over-promised swap output by +15–87% on
+  devnet markets idle ~27 h (swaps accrue first), so tight `minOutput`s failed
+  with `SlippageExceeded`.
+- `quoteSwap(market, direction, amountIn, now?)`: exact quote in all 6
+  directions (buys, sells, YES<->NO), 2% USDC-leg fee included. Matches
+  `simulateTransaction` to < 0.01% on 6 live devnet markets. `minOutput(quote,
+  slippageBps = 100)`.
+- `client.fetchMarkets(pdas)`: many markets in one RPC call.
+- `test/quote.cjs` (`pnpm run test:quote`): offline invariants for the above.
+
 ## [Unreleased] — Sprint 21 (multi-outcome + custom seed price)
 
 ### Added

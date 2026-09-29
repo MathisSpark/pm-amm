@@ -148,6 +148,21 @@ const price = priceFromReserves(reserveYes, reserveNo, lEff); // P = Φ((y−x)/
 const tvl   = poolValue(price, lEff);                          // V(P) = L_eff·φ(Φ⁻¹(P))
 ```
 
+### Quotes & slippage (0.3.0+): use these, not hand-rolled math
+
+```ts
+import { marketState, quoteSwap, minOutput } from "@pm-amm/sdk/math";
+
+const m = await client.fetchMarket(marketPda);          // or client.fetchMarkets([...]) in one call
+const { price, secondsLeft, winner } = marketState(m!); // reserves rescaled to now
+const q = quoteSwap(m!, "yesToUsdc", 3_000_000);         // any of the 6 directions, raw units, fee included
+await client.send.swap(marketPda, "yesToUsdc", 3_000_000, minOutput(q)); // 1% slippage
+```
+
+On-chain reserves date from the last accrual and every swap accrues first, so
+`priceFromReserves` / `estimateSwapOutput` on the raw stored reserves over-promise
+on a market that hasn't traded for a while. `marketState` / `quoteSwap` handle it.
+
 ## Notes
 
 - **Amounts**: `send.*` helpers take USDC in **human units** (converted to 6dp internally),
