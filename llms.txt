@@ -7,14 +7,15 @@ This is a pnpm monorepo. The on-chain math is the source of truth and is a faith
 Read `CLAUDE.md` first for the canonical project state (deployments, sprint history, invariants, rules). Then `README.md` for the pitch and verified results, and `doc/api-reference.md` for every instruction + SDK function.
 
 ## Start here
+- [HACKATHON.md](HACKATHON.md): **building on pm-AMM? start here** — devnet constants, faucet (mUSDC + SOL), a runnable quickstart, the six primitives, gotchas.
 - [CLAUDE.md](CLAUDE.md): canonical state — deployments, addresses, sprint history, math invariants, hard rules ("EXACT formulas from the paper", 400k CU on mutative ix, never deviate from the paper without approval).
 - [README.md](README.md): what it is, the verified properties (uniform LVR, E[W_T]=W_0/2), roadmap, known limitations.
 - [doc/wp-para.md](doc/wp-para.md): the Paradigm pm-AMM paper — **source of truth for ALL math**.
 - [doc/api-reference.md](doc/api-reference.md): per-instruction + per-SDK-function reference, including the collateralization & fee model.
 
 ## On-chain program (Anchor / Rust, `anchor/programs/pm_amm/src/`)
-26 instructions. Program ID `GV1FMGHRYBjQLaghE5fnGuYCuCcpdt3GD5xEX3TwN16y` (same on devnet + mainnet; `declare_id!` compiled in, clusters isolated). Fixed-point math uses `fixed::I80F48` (Q64.64).
-- [lib.rs](anchor/programs/pm_amm/src/lib.rs): program entrypoint + `declare_id!`; wires all 26 handlers.
+34 instructions (10 binary + 5 group + 11 commitment vault + 8 bet vault). Program ID `GV1FMGHRYBjQLaghE5fnGuYCuCcpdt3GD5xEX3TwN16y` (same on devnet + mainnet; `declare_id!` compiled in, clusters isolated). Fixed-point math uses `fixed::I80F48` (Q64.64).
+- [lib.rs](anchor/programs/pm_amm/src/lib.rs): program entrypoint + `declare_id!`; wires all 34 handlers.
 - [pm_math.rs](anchor/programs/pm_amm/src/pm_math.rs): φ, Φ, Φ⁻¹, reserves (eq. 5/6), pool value `V(P)`, swap output, and `suggest_l_zero_for_max_reserve` (the audit-#1 solvency calibration so `max(x,y)=deposit`).
 - [accrual.rs](anchor/programs/pm_amm/src/accrual.rs): the `dC_t` mechanism — per-share accumulators (`cum_yes_per_share`/`cum_no_per_share`) that continuously release reserves to LPs as `L_eff` shrinks.
 - [state.rs](anchor/programs/pm_amm/src/state.rs): `Market`, `LpPosition`, `GroupMarket`, commitment-vault accounts; PDA layouts + space.
@@ -23,6 +24,7 @@ Read `CLAUDE.md` first for the canonical project state (deployments, sprint hist
 - Multi-outcome / group ix (5): `initialize_group_market`, `attach_leg_to_group`, `resolve_group`, `resolve_group_leg`, `cancel_group_market` — see `instructions/group/`. A `GroupMarket` wraps N binary markets as legs of a categorical market; Σ pᵢ tracked via `total_seeded_bps`.
 - Binary commitment-vault ix (5): `initialize_vault`, `vault_commit`, `launch_vault_market`, `claim_committer`, `refund_commit` — `instructions/vault/`. Crowd-bootstraps a market's liquidity; committers become its LPs.
 - Multi-outcome commitment-vault ix (6): `initialize_vault_group`, `vault_commit_group`, `launch_vault_group_market`, `launch_vault_group_leg`, `claim_committer_group`, `refund_commit_group` — `instructions/vault/`.
+- Bet Vault v2 ix (8): `initialize_bet_vault`, `bet_commit`, `launch_bet_vault`, `resolve_bet_vault`, `settle_bet_vault`, `void_bet_vault`, `claim_bet`, `refund_bet` — `instructions/bet/`. Stakes set the odds, winner takes the pot, part of the pot seeds the AMM; spec in [doc/bet-vault-v2.md](doc/bet-vault-v2.md).
 - [instructions/swap.rs](anchor/programs/pm_amm/src/instructions/swap.rs): 6-direction swap (USDC↔YES, USDC↔NO, YES↔NO) + the **2% protocol fee** (see below).
 
 ## Swap fee (2%, 50% DAO / 50% creator)
@@ -38,7 +40,7 @@ Read `CLAUDE.md` first for the canonical project state (deployments, sprint hist
 - **Solvency**: `vault.usdc ≥ max(yes_supply + reserve_yes, no_supply + reserve_no)` at all `t`. Holds because the first deposit calibrates `L_0` so `max(x,y)=deposit` and `swap` hard-reverts any trade that would break it.
 
 ## TypeScript SDK — `@pm-amm/sdk` (`packages/sdk/src/`)
-Framework-agnostic; wraps all 26 instructions + PDAs + typed reads + math. The front consumes it. Build with tsup (ESM+CJS+d.ts); peer-deps on `@anchor-lang/core` / `@solana/web3.js` / `@solana/spl-token`.
+Framework-agnostic; wraps all 34 instructions + PDAs + typed reads + math. The front consumes it. Build with tsup (ESM+CJS+d.ts); peer-deps on `@anchor-lang/core` / `@solana/web3.js` / `@solana/spl-token`.
 - [client.ts](packages/sdk/src/client.ts): `PmAmmClient` (`readOnly` / `withWallet`) — one Program override, helper PDAs, typed `fetch*` reads, and `ix` / `send` / `flows` namespaces.
 - [math.ts](packages/sdk/src/math.ts): float64 port of the on-chain math (sub-export `@pm-amm/sdk/math`) — `estimateSwapOutput`, `poolValue`, `priceFromReserves`, `formatUsdc`, etc.
 - [pda.ts](packages/sdk/src/pda.ts): pure `derive*(programId, …)` for every PDA.

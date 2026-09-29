@@ -88,11 +88,42 @@ Defined in `LIMITS` in the route, counted by
 | Scope | Limit | Why |
 |---|---|---|
 | wallet | 1 claim / hour | stops one user spamming the button |
-| IP (`x-forwarded-for`) | 5 claims / day | stops a script creating fresh wallets to drain the authority's SOL |
-| global | 500 claims / day | hard cap: ≤ ~1 SOL of rent spent per day |
+| IP (`x-forwarded-for`) | 5 claims / day (`FAUCET_IP_DAILY_LIMIT`) | stops a script creating fresh wallets to drain the authority's SOL |
+| global | 500 claims / day (`FAUCET_GLOBAL_DAILY_LIMIT`) | hard cap: ≤ ~1 SOL of rent spent per day |
 
 A refused request doesn't count against the other scopes, and a failed mint
 gives the quota back.
+
+### SOL drip
+
+`FAUCET_SOL_DRIP` (in SOL, e.g. `0.2`; unset = off) makes the same transaction
+also send that much devnet SOL to recipients holding less than it, paid by the
+mint authority. Public devnet airdrops are rate-limited per IP and often dry, so
+without it a new builder can hold 1,000 mUSDC and still be unable to pay a fee.
+The response then carries `"sol": <amount sent>`.
+
+### Event mode (in-person hackathon)
+
+Everyone in the room shares one public IP, so the default 5 claims / IP / day
+locks the whole room out after five people. For the event, on the
+`pm-amm-devnet` Vercel project (Production), set:
+
+```bash
+FAUCET_IP_DAILY_LIMIT=300       # 30 builders × a few wallets each
+FAUCET_GLOBAL_DAILY_LIMIT=1000
+FAUCET_SOL_DRIP=0.2             # builders: ~5 markets' worth of rent + fees
+FAUCET_PLAYER_SOL_DRIP=0.02     # burner wallets of builders' users (role: "player"): ~6 first trades
+```
+
+then **redeploy** (server env is bound per deployment) and top up the mint
+authority: 30 builders × 0.2 SOL ≈ 6 SOL, plus ~500 player wallets × 0.02 SOL ≈
+10 SOL → **~20 SOL** with margin:
+`solana transfer EftrgEw3B744jSihxjrWcX7pW7Y6WTxBJw7RhrGbU2vi 20 --url devnet`.
+Remove the four variables and redeploy after the event.
+
+The faucet answers CORS (`Access-Control-Allow-Origin: *`): builders' apps call
+it from the browser to fund their users' burner wallets
+([`examples/burner-wallet/`](examples/burner-wallet/)).
 
 ⚠️ The counters live in **Upstash Redis** (`KV_REST_API_URL` /
 `KV_REST_API_TOKEN`) when it's configured. Without it they fall back to
@@ -100,7 +131,14 @@ process memory, which is per serverless instance and resets on cold starts:
 fine locally, **too weak for a public deploy** — set the KV variables on any
 public devnet deployment.
 
-Responses: `{ ok, signature, amount }` on success; `400` missing / invalid
+Headless (agents, scripts):
+
+```bash
+curl -X POST https://pm-amm-devnet.vercel.app/api/faucet \
+  -H 'content-type: application/json' -d '{"wallet":"<pubkey>"}'
+```
+
+Responses: `{ ok, signature, amount, sol }` on success; `400` missing / invalid
 wallet; `429` rate limited (`Retry-After` header, message says how long);
 `500` RPC error; `503` faucet not configured or mainnet.
 
