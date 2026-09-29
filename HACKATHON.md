@@ -76,7 +76,29 @@ await client.send.createMarket({ name, durationSecs: 3600, initialPriceBps: 5000
 In a browser app (Next.js / Vite), build the `AnchorProvider` from the wallet
 adapter instead. The reference front ([`app/`](app/)) does exactly that.
 
-## 4. What you can build with: the six primitives
+## 4. Let anyone try your app: burner wallets
+
+Your app is judged by people who won't install a wallet and switch it to
+devnet. Use the **burner wallet kit**: each visitor gets a wallet created in
+their browser and **funded automatically** (1,000 mUSDC + 0.02 SOL). They trade
+in one tap, with no popups.
+
+```bash
+npm i @pm-amm/sdk @solana/web3.js @anchor-lang/core @solana/spl-token bs58
+curl -sO https://predict-pm-amm.dev/burner/burner.ts
+curl -sO https://predict-pm-amm.dev/burner/useBurnerWallet.ts
+```
+
+```tsx
+const { client, balances, status, error, refresh } = useBurnerWallet();
+// status "ready" → client.send.swap(market, "usdcToYes", 5_000_000, minOut)
+```
+
+Full guide: [`examples/burner-wallet/README.md`](examples/burner-wallet/README.md).
+Create your markets from **your own builder wallet** (the quickstart), not from
+your users' burners. Devnet only: the key lives in `localStorage`.
+
+## 5. What you can build with: the six primitives
 
 | Primitive | SDK entry | Use it when |
 |---|---|---|
@@ -90,10 +112,12 @@ adapter instead. The reference front ([`app/`](app/)) does exactly that.
 Pricing math with no chain dependency: `@pm-amm/sdk/math`
 (`priceFromReserves`, `estimateSwapOutput`, `poolValue`, `simulateLpDeposit`…).
 
-## 5. Gotchas (read these before debugging)
+## 6. Gotchas (read these before debugging)
 
 - **Node + ESM:** `@anchor-lang/core` is CommonJS, so `import { … } from "@pm-amm/sdk"`
   under raw Node ESM fails on `BN`. Use `require()` (`.cjs`) or a bundler.
+- **Browser `Buffer`:** Vite and plain bundlers need a polyfill (`npm i buffer`,
+  `globalThis.Buffer = Buffer` before Solana code loads). Next.js has one.
 - **One copy of web3.js:** the Solana libs are peer deps. Two copies of
   `@solana/web3.js` break `PublicKey instanceof`.
 - **Units:** `send.*` takes USDC in **human** units (`50` = 50 mUSDC), **except**
@@ -113,7 +137,7 @@ Pricing math with no chain dependency: `@pm-amm/sdk/math`
   on `endTs` / `resolved`.
 - **Market names:** 1..64 bytes.
 
-## 6. Ideas
+## 7. Ideas
 
 - **Resolution:** an oracle adapter (Pyth / Switchboard price feeds for
   "SOL > $X by date"), a dispute window, an AI or multisig resolver.
@@ -125,22 +149,23 @@ Pricing math with no chain dependency: `@pm-amm/sdk/math`
   summing to 1.
 - **Tooling:** an indexer, LP dashboards, a Python / Rust client.
 
-## 7. Submission & judging
+## 8. Submission & judging
 
 - **What to ship:** a **working app anyone can open and use** (a deployed URL on
-  devnet), plus its repo. A demo video is a bonus, not a substitute.
+  devnet, ideally with burner wallets so the jury can trade in one tap), plus its repo. A demo video is a bonus, not a substitute.
 - **Judging:** at the jury's discretion. What they look for: a real, usable
   application and an **interesting use case** for prediction markets.
 - **Questions / stuck:** Telegram **[@mathis_btc](https://t.me/mathis_btc)**, or
   ask the organisers in the room.
 
-## 8. Read next (only what you need)
+## 9. Read next (only what you need)
 
 | Need | Read |
 |---|---|
 | Every SDK signature, type and recipe (dense, for agents) | [`packages/sdk/llms.txt`](packages/sdk/llms.txt) (also at `https://pm-amm-devnet.vercel.app/llms.txt`) |
 | Every on-chain instruction: accounts, args, errors | [`doc/api-reference.md`](doc/api-reference.md) |
 | SDK quickstart for humans | [`packages/sdk/README.md`](packages/sdk/README.md) |
+| Burner wallets for your users | [`examples/burner-wallet/README.md`](examples/burner-wallet/README.md) |
 | Bet vault design + payout examples | [`doc/bet-vault-v2.md`](doc/bet-vault-v2.md) |
 | Devnet ops (faucet internals, seeding, limits) | [`DEVNET.md`](DEVNET.md) |
 | Repo map, math invariants | [`llms.txt`](llms.txt), [`CLAUDE.md`](CLAUDE.md) |

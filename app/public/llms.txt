@@ -46,6 +46,7 @@ POST https://pm-amm-devnet.vercel.app/api/faucet   {"wallet":"<base58 pubkey>"}
 ```
 Reference app (devnet): https://pm-amm-devnet.vercel.app — market page `/market/<marketId>` (the numeric id returned by `createMarket`, not the PDA).
 Runnable Node example (keypair → faucet → create market → swap): `examples/quickstart-devnet/index.cjs`.
+Burner wallets for an app's end users (browser keypair auto-funded via the faucet with `role: "player"` → 1,000 mUSDC + 0.02 SOL; the faucet allows CORS): `examples/burner-wallet/` (`burner.ts` + React `useBurnerWallet()`); a player wallet trades/LPs/claims, creating markets (~0.04 SOL) is for the builder's own wallet.
 
 ### Signing client in Node (CJS)
 

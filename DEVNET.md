@@ -111,13 +111,19 @@ locks the whole room out after five people. For the event, on the
 ```bash
 FAUCET_IP_DAILY_LIMIT=300       # 30 builders × a few wallets each
 FAUCET_GLOBAL_DAILY_LIMIT=1000
-FAUCET_SOL_DRIP=0.2             # ~4 markets' worth of rent + fees per wallet
+FAUCET_SOL_DRIP=0.2             # builders: ~5 markets' worth of rent + fees
+FAUCET_PLAYER_SOL_DRIP=0.02     # burner wallets of builders' users (role: "player"): ~6 first trades
 ```
 
 then **redeploy** (server env is bound per deployment) and top up the mint
-authority: 30 wallets × (0.2 SOL + ~0.002 rent) ≈ **6 SOL**, plus margin →
-`solana transfer EftrgEw3B744jSihxjrWcX7pW7Y6WTxBJw7RhrGbU2vi 10 --url devnet`.
-Remove the three variables and redeploy after the event.
+authority: 30 builders × 0.2 SOL ≈ 6 SOL, plus ~500 player wallets × 0.02 SOL ≈
+10 SOL → **~20 SOL** with margin:
+`solana transfer EftrgEw3B744jSihxjrWcX7pW7Y6WTxBJw7RhrGbU2vi 20 --url devnet`.
+Remove the four variables and redeploy after the event.
+
+The faucet answers CORS (`Access-Control-Allow-Origin: *`): builders' apps call
+it from the browser to fund their users' burner wallets
+([`examples/burner-wallet/`](examples/burner-wallet/)).
 
 ⚠️ The counters live in **Upstash Redis** (`KV_REST_API_URL` /
 `KV_REST_API_TOKEN`) when it's configured. Without it they fall back to
